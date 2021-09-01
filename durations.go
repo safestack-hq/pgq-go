@@ -3,7 +3,6 @@ package pgq
 import (
 	"bytes"
 	"database/sql/driver"
-	"errors"
 	"strings"
 	"time"
 
@@ -31,10 +30,11 @@ func (ds *Durations) Scan(src interface{}) error {
 	if src == nil {
 		return nil
 	}
-	source, ok := src.([]byte)
+	srcStr, ok := src.(string)
 	if !ok {
-		return errors.New("source failed type assertion to []byte")
+		return nil
 	}
+	source := []byte(srcStr)
 	durs := []time.Duration{}
 	// drop leading and trailing curly braces
 	source = source[1 : len(source)-1]
