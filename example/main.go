@@ -8,8 +8,8 @@ import (
 
 	cli "gopkg.in/urfave/cli.v1"
 
-	"github.com/btubbs/pgq"
 	_ "github.com/lib/pq"
+	"github.com/safestack-hq/pgq-go"
 )
 
 func main() {
