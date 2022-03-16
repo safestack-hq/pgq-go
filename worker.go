@@ -31,7 +31,7 @@ type Worker struct {
 	deleteJobOnComplete bool
 	StopChan            chan bool
 	onStop              func()
-	log                 *log.Logger
+	log                 *zerolog.Logger
 	verbose             bool
 }
 
@@ -58,23 +58,24 @@ func NewWorker(db *sql.DB, options ...WorkerOption) *Worker {
 	return runner
 }
 
-func (worker *Worker) LogInfo(logEvent *zerolog.Event, msg interface{}) {
+func (worker *Worker) LogDebug(logFields map[string]interface{}, msg string) {
 	if worker.verbose {
-		logEvent.Msg(msg)
+		log.Debug().Fields(logFields).Msg(msg)
 	}
 }
 
 // EnqueueJob puts a job on the queue.  If successful, it returns the Job ID.
 func (worker *Worker) EnqueueJob(queueName string, data []byte, options ...JobOption) (int, error) {
 	id, err := enqueueJob(worker.db, queueName, data, options...)
-	logEntry := worker.log.WithFields(log.Fields{
-		"id":        id,
-		"queueName": queueName,
-	})
+	logFields := make(map[string]interface{})
+	logFields["id"] = id
+	logFields["queueName"] = queueName
+
 	if err != nil {
-		logEntry.WithField("error", err).Error("EnqueueJob")
+		logFields["error"] = err
+		worker.log.Error().Err(err).Fields(logFields).Msg("EnqueueJob")
 	} else {
-		logEntry.Info("EnqueueJob")
+		worker.log.Info().Msg("EnqueueJob")
 	}
 	return id, err
 }
@@ -85,14 +86,14 @@ func (worker *Worker) EnqueueJob(queueName string, data []byte, options ...JobOp
 // successful.  All the handling of Begin, Commit, and Rollback calls is up to you.
 func (worker *Worker) EnqueueJobInTx(tx DB, queueName string, data []byte, options ...JobOption) (int, error) {
 	id, err := enqueueJob(tx, queueName, data, options...)
-	logEntry := worker.log.WithFields(log.Fields{
-		"id":        id,
-		"queueName": queueName,
-	})
+	logFields := make(map[string]interface{})
+	logFields["id"] = id
+	logFields["queueName"] = queueName
+
 	if err != nil {
-		logEntry.WithField("error", err).Error("EnqueueJobInTx")
+		worker.log.Error().Err(err).Fields(logFields).Msg("EnqueueJobInTx")
 	} else {
-		logEntry.Info("EnqueueJobInTx")
+		worker.log.Info().Msg("EnqueueJobInTx")
 	}
 	return id, err
 }
@@ -109,9 +110,9 @@ func (worker *Worker) RegisterQueue(queueName string, jobFunc func([]byte) error
 
 // Run will query for the next job in the queue, then run it, then do another, forever.
 func (worker *Worker) Run() error {
-	worker.log.WithField("queueNames", worker.getQueueNames()).Info("Run")
+	worker.log.Info().Fields(map[string]interface{}{"queueNames": worker.getQueueNames()}).Msg("Run")
 	defer func() {
-		worker.log.Info("Exiting")
+		worker.log.Info().Msg("Exiting")
 		if worker.onStop != nil {
 			worker.onStop()
 		}
@@ -168,8 +169,7 @@ func (worker *Worker) PerformNextJob() (attempted bool, outErr error) {
 		if jobErr != nil || outErr != nil {
 			log.Error().Fields(logFields).Msg("PerformNextJob")
 		} else {
-			logEntry := log.Info().Fields(logFields)
-			worker.LogInfo(logEntry, "PerformNextJob")
+			worker.LogDebug(logFields, "PerformNextJob")
 		}
 
 		outErr = errorx.DecorateMany("error performing job", outErr, tx.Commit())
@@ -296,14 +296,14 @@ func OnStop(f func()) WorkerOption {
 }
 
 // SetLogger allows you to set your own logrus logger object for use by the job worker.
-func SetLogger(l *log.Logger) WorkerOption {
+func SetLogger(l *zerolog.Logger) WorkerOption {
 	return func(worker *Worker) {
 		worker.log = l
 	}
 }
 
-func defaultLogger() *log.Logger {
-	return logger
+func defaultLogger() *zerolog.Logger {
+	return &zerolog.Logger{}
 }
 
 // SetVerbose allows you to enable/disable logging every time a worker checks for a job.
