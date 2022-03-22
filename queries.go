@@ -78,7 +78,7 @@ func enqueueJob(execer DB, queueName string, data interface{}, options ...JobOpt
 				retry_waits
 			) VALUES (
 				$1,
-				$2,
+				$2::JSONB,
 				$3,
 				$4
 			) RETURNING id;
