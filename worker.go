@@ -36,7 +36,7 @@ type Worker struct {
 }
 
 type queue struct {
-	handler     func([]byte) error
+	handler     func(interface{}) error
 	pausedUntil time.Time
 	backoff     time.Duration
 }
@@ -58,14 +58,8 @@ func NewWorker(db *sql.DB, options ...WorkerOption) *Worker {
 	return runner
 }
 
-func (worker *Worker) LogDebug(logFields map[string]interface{}, msg string) {
-	if worker.verbose {
-		log.Debug().Fields(logFields).Msg(msg)
-	}
-}
-
 // EnqueueJob puts a job on the queue.  If successful, it returns the Job ID.
-func (worker *Worker) EnqueueJob(queueName string, data []byte, options ...JobOption) (int, error) {
+func (worker *Worker) EnqueueJob(queueName string, data interface{}, options ...JobOption) (int, error) {
 	id, err := enqueueJob(worker.db, queueName, data, options...)
 	logFields := make(map[string]interface{})
 	logFields["id"] = id
@@ -75,7 +69,7 @@ func (worker *Worker) EnqueueJob(queueName string, data []byte, options ...JobOp
 		logFields["error"] = err
 		worker.log.Error().Err(err).Fields(logFields).Msg("EnqueueJob")
 	} else {
-		worker.log.Info().Msg("EnqueueJob")
+		worker.log.Info().Fields(logFields).Msg("EnqueueJob")
 	}
 	return id, err
 }
@@ -84,7 +78,7 @@ func (worker *Worker) EnqueueJob(queueName string, data []byte, options ...JobOp
 // with an Exec method.  This is useful if your application has other tables in the same database,
 // and you want to only enqueue the job if all the DB operations in the same transaction are
 // successful.  All the handling of Begin, Commit, and Rollback calls is up to you.
-func (worker *Worker) EnqueueJobInTx(tx DB, queueName string, data []byte, options ...JobOption) (int, error) {
+func (worker *Worker) EnqueueJobInTx(tx DB, queueName string, data interface{}, options ...JobOption) (int, error) {
 	id, err := enqueueJob(tx, queueName, data, options...)
 	logFields := make(map[string]interface{})
 	logFields["id"] = id
@@ -93,14 +87,14 @@ func (worker *Worker) EnqueueJobInTx(tx DB, queueName string, data []byte, optio
 	if err != nil {
 		worker.log.Error().Err(err).Fields(logFields).Msg("EnqueueJobInTx")
 	} else {
-		worker.log.Info().Msg("EnqueueJobInTx")
+		worker.log.Info().Fields(logFields).Msg("EnqueueJobInTx")
 	}
 	return id, err
 }
 
 // RegisterQueue tells your Worker instance which function should be called for a
 // given job type.
-func (worker *Worker) RegisterQueue(queueName string, jobFunc func([]byte) error) error {
+func (worker *Worker) RegisterQueue(queueName string, jobFunc func(interface{}) error) error {
 	if _, alreadyRegistered := worker.queues[queueName]; alreadyRegistered {
 		return fmt.Errorf("a handler for %s jobs has already been registered", queueName)
 	}
@@ -169,7 +163,11 @@ func (worker *Worker) PerformNextJob() (attempted bool, outErr error) {
 		if jobErr != nil || outErr != nil {
 			log.Error().Fields(logFields).Msg("PerformNextJob")
 		} else {
-			worker.LogDebug(logFields, "PerformNextJob")
+			if worker.verbose {
+				log.Debug().Fields(logFields).Msg("PerformNextJob")
+			} else if attempted {
+				log.Info().Fields(logFields).Msg("PerformNextJob")
+			}
 		}
 
 		outErr = errorx.DecorateMany("error performing job", outErr, tx.Commit())

@@ -12,7 +12,7 @@ type Job struct {
 	ID         int64       `db:"id"`
 	CreatedAt  time.Time   `db:"created_at"`
 	QueueName  string      `db:"queue_name"`
-	Data       []byte      `db:"data"`
+	Data       interface{} `db:"data"`
 	RunAfter   time.Time   `db:"run_after"`
 	RetryWaits Durations   `db:"retry_waits"`
 	RanAt      null.Time   `db:"ran_at"`

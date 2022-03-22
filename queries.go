@@ -12,7 +12,9 @@ import (
 
 func getNextJob(tx *sqlx.Tx, queueNames []string) (*Job, error) {
 	query, args, err := sqlx.In(`
-		SELECT * FROM pgq_jobs
+		SELECT
+			id, created_at, queue_name, data, run_after, retry_waits, ran_at, error
+		FROM pgq_jobs
 		WHERE
 			queue_name IN (?)
 			AND run_after < ?
@@ -46,7 +48,7 @@ type DB interface {
 	QueryRow(string, ...interface{}) *sql.Row
 }
 
-func enqueueJob(execer DB, queueName string, data []byte, options ...JobOption) (int, error) {
+func enqueueJob(execer DB, queueName string, data interface{}, options ...JobOption) (int, error) {
 	// create job with provided data and default options
 	job := &Job{
 		QueueName: queueName,

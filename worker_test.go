@@ -27,15 +27,15 @@ func TestPerformNextJob(t *testing.T) {
 		desc           string
 		runnerOptions  []WorkerOption
 		enqueueJobs    func(*Worker)
-		handler        func([]byte) error
+		handler        func(interface{}) error
 		makeAssertions func(*testing.T, *sqlx.DB, bool, error)
 	}{
 		{
 			desc: "happy path",
 			enqueueJobs: func(worker *Worker) {
-				worker.EnqueueJob("blah", []byte("some data"))
+				worker.EnqueueJob("blah", "some data")
 			},
-			handler: func(b []byte) error {
+			handler: func(b interface{}) error {
 				return nil
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -50,7 +50,7 @@ func TestPerformNextJob(t *testing.T) {
 			desc: "no job in queue",
 			enqueueJobs: func(worker *Worker) {
 			},
-			handler: func(b []byte) error {
+			handler: func(b interface{}) error {
 				assert.Fail(t, "I should never be called.")
 				return nil
 			},
@@ -65,9 +65,9 @@ func TestPerformNextJob(t *testing.T) {
 		{
 			desc: "jobFunc panics",
 			enqueueJobs: func(worker *Worker) {
-				worker.EnqueueJob("blah", []byte("some data"))
+				worker.EnqueueJob("blah", "some data")
 			},
-			handler: func(b []byte) error {
+			handler: func(b interface{}) error {
 				panic("boom")
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -81,9 +81,9 @@ func TestPerformNextJob(t *testing.T) {
 		{
 			desc: "jobFunc errors",
 			enqueueJobs: func(worker *Worker) {
-				worker.EnqueueJob("blah", []byte("some data"))
+				worker.EnqueueJob("blah", "some data")
 			},
-			handler: func(b []byte) error {
+			handler: func(b interface{}) error {
 				return errors.New("boom")
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -97,12 +97,12 @@ func TestPerformNextJob(t *testing.T) {
 		{
 			desc: "preserve attempts",
 			enqueueJobs: func(worker *Worker) {
-				worker.EnqueueJob("blah", []byte("some data"))
+				worker.EnqueueJob("blah", "some data")
 			},
 			runnerOptions: []WorkerOption{
 				PreserveCompletedJobs,
 			},
-			handler: func(b []byte) error {
+			handler: func(b interface{}) error {
 				return nil
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -121,12 +121,12 @@ func TestPerformNextJob(t *testing.T) {
 		{
 			desc: "preserve errors with attempts",
 			enqueueJobs: func(worker *Worker) {
-				worker.EnqueueJob("blah", []byte("some data"))
+				worker.EnqueueJob("blah", "some data")
 			},
 			runnerOptions: []WorkerOption{
 				PreserveCompletedJobs,
 			},
-			handler: func(b []byte) error {
+			handler: func(b interface{}) error {
 				return errors.New("boom")
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -146,9 +146,9 @@ func TestPerformNextJob(t *testing.T) {
 		{
 			desc: "retries get enqueued",
 			enqueueJobs: func(worker *Worker) {
-				worker.EnqueueJob("blah", []byte("some data"))
+				worker.EnqueueJob("blah", "some data")
 			},
-			handler: func(b []byte) error {
+			handler: func(b interface{}) error {
 				return errors.New("boom")
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -200,15 +200,15 @@ func TestRunABunchOfTasks(t *testing.T) {
 		runnerWG.Add(runnerCount)
 
 		// three tasks.  one always succeeds, one always fails, one always panics
-		good := func(data []byte) error {
+		good := func(data interface{}) error {
 			jobWG.Done()
 			return nil
 		}
-		bad := func(data []byte) error {
+		bad := func(data interface{}) error {
 			jobWG.Done()
 			return errors.New("this is an error")
 		}
-		ugly := func(data []byte) error {
+		ugly := func(data interface{}) error {
 			jobWG.Done()
 			panic("this is a panic!")
 		}
@@ -233,19 +233,19 @@ func TestRunABunchOfTasks(t *testing.T) {
 		for n := 0; n < jobMultiplier; n++ {
 			_, err := workers[0].EnqueueJob(
 				"good",
-				[]byte(""),
+				"",
 				RetryWaits(retries),
 			)
 			assert.Nil(t, err)
 			_, err = workers[0].EnqueueJob(
 				"bad",
-				[]byte(""),
+				"",
 				RetryWaits(retries),
 			)
 			assert.Nil(t, err)
 			_, err = workers[0].EnqueueJob(
 				"ugly",
-				[]byte(""),
+				"",
 				RetryWaits([]time.Duration{0}),
 			)
 			assert.Nil(t, err)
@@ -294,7 +294,7 @@ func TestRunnerBackoff(t *testing.T) {
 		var runnerWG sync.WaitGroup
 		runnerWG.Add(1)
 
-		bad := func(data []byte) error {
+		bad := func(data interface{}) error {
 			jobWG.Done()
 			return Backoff("this is an error")
 		}
@@ -314,7 +314,7 @@ func TestRunnerBackoff(t *testing.T) {
 		for n := 0; n < jobs; n++ {
 			_, err := worker.EnqueueJob(
 				"bad",
-				[]byte(""),
+				"",
 				RetryWaits(Durations{}), // no retries
 			)
 			assert.Nil(t, err)
