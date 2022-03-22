@@ -5,6 +5,7 @@ package pgq
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -36,7 +37,7 @@ type Worker struct {
 }
 
 type queue struct {
-	handler     func(interface{}) error
+	handler     func(json.RawMessage) error
 	pausedUntil time.Time
 	backoff     time.Duration
 }
@@ -59,7 +60,7 @@ func NewWorker(db *sql.DB, options ...WorkerOption) *Worker {
 }
 
 // EnqueueJob puts a job on the queue.  If successful, it returns the Job ID.
-func (worker *Worker) EnqueueJob(queueName string, data interface{}, options ...JobOption) (int, error) {
+func (worker *Worker) EnqueueJob(queueName string, data json.RawMessage, options ...JobOption) (int, error) {
 	id, err := enqueueJob(worker.db, queueName, data, options...)
 	logFields := make(map[string]interface{})
 	logFields["id"] = id
@@ -78,7 +79,7 @@ func (worker *Worker) EnqueueJob(queueName string, data interface{}, options ...
 // with an Exec method.  This is useful if your application has other tables in the same database,
 // and you want to only enqueue the job if all the DB operations in the same transaction are
 // successful.  All the handling of Begin, Commit, and Rollback calls is up to you.
-func (worker *Worker) EnqueueJobInTx(tx DB, queueName string, data interface{}, options ...JobOption) (int, error) {
+func (worker *Worker) EnqueueJobInTx(tx DB, queueName string, data json.RawMessage, options ...JobOption) (int, error) {
 	id, err := enqueueJob(tx, queueName, data, options...)
 	logFields := make(map[string]interface{})
 	logFields["id"] = id
@@ -94,7 +95,7 @@ func (worker *Worker) EnqueueJobInTx(tx DB, queueName string, data interface{}, 
 
 // RegisterQueue tells your Worker instance which function should be called for a
 // given job type.
-func (worker *Worker) RegisterQueue(queueName string, jobFunc func(interface{}) error) error {
+func (worker *Worker) RegisterQueue(queueName string, jobFunc func(json.RawMessage) error) error {
 	if _, alreadyRegistered := worker.queues[queueName]; alreadyRegistered {
 		return fmt.Errorf("a handler for %s jobs has already been registered", queueName)
 	}

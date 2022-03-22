@@ -3,7 +3,7 @@ CREATE TABLE pgq_jobs (
   id SERIAL PRIMARY KEY,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
   queue_name TEXT NOT NULL,
-  data BYTEA NOT NULL,
+  data JSONB NOT NULL,
   run_after TIMESTAMP WITH TIME ZONE NOT NULL,
   retry_waits TEXT[] NOT NULL,
   ran_at TIMESTAMP WITH TIME ZONE,

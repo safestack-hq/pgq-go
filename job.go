@@ -1,6 +1,7 @@
 package pgq
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -9,14 +10,14 @@ import (
 
 // Job contains all the info needed to execute a single job attempt.
 type Job struct {
-	ID         int64       `db:"id"`
-	CreatedAt  time.Time   `db:"created_at"`
-	QueueName  string      `db:"queue_name"`
-	Data       interface{} `db:"data"`
-	RunAfter   time.Time   `db:"run_after"`
-	RetryWaits Durations   `db:"retry_waits"`
-	RanAt      null.Time   `db:"ran_at"`
-	Error      null.String `db:"error"`
+	ID         int64           `db:"id"`
+	CreatedAt  time.Time       `db:"created_at"`
+	QueueName  string          `db:"queue_name"`
+	Data       json.RawMessage `db:"data"`
+	RunAfter   time.Time       `db:"run_after"`
+	RetryWaits Durations       `db:"retry_waits"`
+	RanAt      null.Time       `db:"ran_at"`
+	Error      null.String     `db:"error"`
 }
 
 // A JobOption sets an optional parameter on a Job that you're enqueueing.

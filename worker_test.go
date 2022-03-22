@@ -1,6 +1,7 @@
 package pgq
 
 import (
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -27,7 +28,7 @@ func TestPerformNextJob(t *testing.T) {
 		desc           string
 		runnerOptions  []WorkerOption
 		enqueueJobs    func(*Worker)
-		handler        func(interface{}) error
+		handler        func(json.RawMessage) error
 		makeAssertions func(*testing.T, *sqlx.DB, bool, error)
 	}{
 		{
@@ -35,7 +36,7 @@ func TestPerformNextJob(t *testing.T) {
 			enqueueJobs: func(worker *Worker) {
 				worker.EnqueueJob("blah", "some data")
 			},
-			handler: func(b interface{}) error {
+			handler: func(b json.RawMessage) error {
 				return nil
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -50,7 +51,7 @@ func TestPerformNextJob(t *testing.T) {
 			desc: "no job in queue",
 			enqueueJobs: func(worker *Worker) {
 			},
-			handler: func(b interface{}) error {
+			handler: func(b json.RawMessage) error {
 				assert.Fail(t, "I should never be called.")
 				return nil
 			},
@@ -67,7 +68,7 @@ func TestPerformNextJob(t *testing.T) {
 			enqueueJobs: func(worker *Worker) {
 				worker.EnqueueJob("blah", "some data")
 			},
-			handler: func(b interface{}) error {
+			handler: func(b json.RawMessage) error {
 				panic("boom")
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -83,7 +84,7 @@ func TestPerformNextJob(t *testing.T) {
 			enqueueJobs: func(worker *Worker) {
 				worker.EnqueueJob("blah", "some data")
 			},
-			handler: func(b interface{}) error {
+			handler: func(b json.RawMessage) error {
 				return errors.New("boom")
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -102,7 +103,7 @@ func TestPerformNextJob(t *testing.T) {
 			runnerOptions: []WorkerOption{
 				PreserveCompletedJobs,
 			},
-			handler: func(b interface{}) error {
+			handler: func(b json.RawMessage) error {
 				return nil
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -126,7 +127,7 @@ func TestPerformNextJob(t *testing.T) {
 			runnerOptions: []WorkerOption{
 				PreserveCompletedJobs,
 			},
-			handler: func(b interface{}) error {
+			handler: func(b json.RawMessage) error {
 				return errors.New("boom")
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -148,7 +149,7 @@ func TestPerformNextJob(t *testing.T) {
 			enqueueJobs: func(worker *Worker) {
 				worker.EnqueueJob("blah", "some data")
 			},
-			handler: func(b interface{}) error {
+			handler: func(b json.RawMessage) error {
 				return errors.New("boom")
 			},
 			makeAssertions: func(t *testing.T, db *sqlx.DB, attempted bool, jobErr error) {
@@ -200,15 +201,15 @@ func TestRunABunchOfTasks(t *testing.T) {
 		runnerWG.Add(runnerCount)
 
 		// three tasks.  one always succeeds, one always fails, one always panics
-		good := func(data interface{}) error {
+		good := func(data json.RawMessage) error {
 			jobWG.Done()
 			return nil
 		}
-		bad := func(data interface{}) error {
+		bad := func(data json.RawMessage) error {
 			jobWG.Done()
 			return errors.New("this is an error")
 		}
-		ugly := func(data interface{}) error {
+		ugly := func(data json.RawMessage) error {
 			jobWG.Done()
 			panic("this is a panic!")
 		}
@@ -294,7 +295,7 @@ func TestRunnerBackoff(t *testing.T) {
 		var runnerWG sync.WaitGroup
 		runnerWG.Add(1)
 
-		bad := func(data interface{}) error {
+		bad := func(data json.RawMessage) error {
 			jobWG.Done()
 			return Backoff("this is an error")
 		}

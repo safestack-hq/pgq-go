@@ -2,6 +2,7 @@ package pgq
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -48,7 +49,7 @@ type DB interface {
 	QueryRow(string, ...interface{}) *sql.Row
 }
 
-func enqueueJob(execer DB, queueName string, data interface{}, options ...JobOption) (int, error) {
+func enqueueJob(execer DB, queueName string, data json.RawMessage, options ...JobOption) (int, error) {
 	// create job with provided data and default options
 	job := &Job{
 		QueueName: queueName,

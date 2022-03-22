@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -64,7 +65,7 @@ func run(db *sql.DB) error {
 	worker := pgq.NewWorker(db)
 
 	// register handlers for all the job types we care about.
-	err := worker.RegisterQueue("sayHello", func(data interface{}) error {
+	err := worker.RegisterQueue("sayHello", func(data json.RawMessage) error {
 		_, err := fmt.Printf("Hello %s!\n", string(data))
 		return err
 	})
@@ -72,7 +73,7 @@ func run(db *sql.DB) error {
 		return err
 	}
 
-	worker.RegisterQueue("addOne", func(data interface{}) error {
+	worker.RegisterQueue("addOne", func(data json.RawMessage) error {
 		// turn the data into a number
 		num, err := strconv.Atoi(string(data))
 		if err != nil {
